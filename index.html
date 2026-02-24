@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>パール歯科医院与野アンケート</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&display=swap');
+    body{background:#f4f0ff;font-family:"Zen Maru Gothic",system-ui,sans-serif;margin:0;padding:20px}
+    .container{max-width:560px;margin:40px auto;background:#fff;border-radius:16px;padding:24px;box-shadow:0 10px 25px rgba(0,0,0,.05)}
+    h1{font-size:20px;margin:0 0 6px;color:#5a4ebf;text-align:center}
+    h2{font-size:15px;margin:0 0 18px;color:#555;text-align:center}
+    label{display:block;margin-top:12px;font-size:13px;font-weight:700}
+    textarea{width:100%;min-height:62px;padding:10px;font-size:14px;border-radius:10px;border:1px solid #ccc;box-sizing:border-box;resize:vertical;line-height:1.55}
+    .primary{width:100%;margin-top:16px;padding:12px;border-radius:10px;border:0;background:#7b6df0;color:#fff;font-weight:800;font-size:14px;cursor:pointer}
+    .primary:disabled{opacity:.6;cursor:not-allowed}
+    .card{margin-top:12px;padding:12px;border-radius:12px;background:#faf8ff;border:1px solid #eee7ff;font-size:12px;color:#555;line-height:1.6}
+    .status{margin-top:12px;font-size:13px;white-space:pre-wrap}
+    .actions{display:flex;gap:10px;margin-top:14px}
+    .btn{flex:1;padding:12px;border-radius:12px;border:0;font-weight:800;font-size:14px;cursor:pointer}
+    .btn-blue{background:#1e66ff;color:#fff}
+    .btn-red{background:#e23b3b;color:#fff}
+    .btn:disabled{opacity:.55;cursor:not-allowed}
+    #pageForm{display:block}
+    #pageResult{display:none}
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div id="pageForm">
+    <h1>パール歯科医院与野アンケート</h1>
+    <h2>感想をお聞かせください</h2>
+    <form id="reviewForm" onsubmit="return false;"></form>
+    <button id="btnSubmit" class="primary" type="button">アンケート送信</button>
+    <div id="statusForm" class="status"></div>
+    <div class="card">
+      このアンケートは院内改善の参考にさせていただきます。投稿のお願いや評価（★）の指定は行いません。
+    </div>
+  </div>
+
+  <div id="pageResult">
+    <h1>パール歯科医院与野アンケート</h1>
+    <h2>文章案ができました</h2>
+
+    <div class="card">
+      <b>重要：</b>下の文章は「参考文」です。<b>必ずご自身の言葉に修正</b>し、内容を確認したうえでご利用ください。<br>
+      投稿は<b>任意</b>です。投稿の有無によって対応が変わることはありません。
+    </div>
+
+    <p style="margin:14px 0 8px;font-weight:700;font-size:13px;color:#333">文章案（自由に編集できます）</p>
+    <textarea id="resultText"></textarea>
+
+    <div style="display:flex;gap:10px;align-items:flex-start;margin-top:12px">
+      <input id="confirm" type="checkbox" style="transform:translateY(2px)">
+      <div style="font-size:12px;color:#444;line-height:1.5">
+        内容を確認し、自分の言葉に修正しました。<br>
+        また、Google口コミへの投稿は任意であることを理解しました。
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnCopy" class="btn btn-blue" type="button" disabled>コピーする</button>
+      <button id="btnReview" class="btn btn-red" type="button" disabled>Google口コミページを開く</button>
+    </div>
+
+    <div id="statusResult" class="status"></div>
+  </div>
+
+</div>
+
+<script>
+  // ====== GAS /exec（あなたのURL）======
+  const GAS_ENDPOINT = "https://script.google.com/macros/s/AKfycbx9D5O-itNT9o8WhKJpDDjeqPg1LLWYsORVgaUskapQG8gGPGvEBAp-GlKdRk3CJ9Q/exec";
+  const REVIEW_URL = "https://g.page/r/CeCVBnY30AmDEB0/review";
+
+  const QUESTIONS = [
+    "どんな治療を受けましたか？",
+    "来院のきっかけは何でしたか？",
+    "院内の雰囲気はいかがでしたか？",
+    "待ち時間についてどう感じましたか？",
+    "治療前の説明は分かりやすかったですか？",
+    "痛みへの配慮はいかがでしたか？",
+    "スタッフ対応はいかがでしたか？",
+    "清潔感についてどう思いましたか？",
+    "予約の取りやすさはいかがでしたか？",
+    "設備についてどう感じましたか？",
+    "安心感はありましたか？",
+    "他院と比べてどうでしたか？",
+    "不安は解消されましたか？",
+    "通いやすさはいかがですか？",
+    "料金説明は十分でしたか？",
+    "今後も通いたいと思いますか？",
+    "家族や友人に勧めたいですか？",
+    "先生の対応はいかがでしたか？",
+    "治療後のフォローはいかがでしたか？",
+    "全体的な満足度を教えてください"
+  ];
+
+  // ランダム5問
+  const selected = QUESTIONS.slice().sort(() => 0.5 - Math.random()).slice(0,5);
+  const form = document.getElementById("reviewForm");
+  selected.forEach((q, i) => {
+    const wrap = document.createElement("div");
+    wrap.innerHTML = `<label>${q}</label><textarea name="q${i}" required></textarea>`;
+    form.appendChild(wrap);
+  });
+
+  const statusForm = document.getElementById("statusForm");
+  const statusResult = document.getElementById("statusResult");
+
+  function setStatus(el, msg, isError=false){
+    el.style.color = isError ? "red" : "#333";
+    el.textContent = msg || "";
+  }
+
+  function toResultPage(text){
+    document.getElementById("pageForm").style.display = "none";
+    document.getElementById("pageResult").style.display = "block";
+    document.getElementById("resultText").value = text;
+    document.getElementById("confirm").checked = false;
+    toggleActions();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function toggleActions(){
+    const ok = document.getElementById("confirm").checked;
+    document.getElementById("btnCopy").disabled = !ok;
+    document.getElementById("btnReview").disabled = !ok;
+    if(ok) setStatus(statusResult, "");
+  }
+  document.getElementById("confirm").addEventListener("change", toggleActions);
+
+  // ===== JSONP（CORS回避）=====
+  function callGasJsonp(endpoint, payloadObj, onSuccess, onError) {
+    const cbName = "__gas_cb_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+
+    const timer = setTimeout(() => {
+      cleanup();
+      onError(new Error("タイムアウト：通信が完了しませんでした。"));
+    }, 45000);
+
+    function cleanup() {
+      clearTimeout(timer);
+      try { delete window[cbName]; } catch (_) {}
+      const s = document.getElementById(cbName);
+      if (s) s.remove();
+    }
+
+    window[cbName] = (resp) => {
+      cleanup();
+      if (resp && resp.ok) onSuccess(resp);
+      else onError(new Error((resp && resp.error) ? resp.error : "unknown error"));
+    };
+
+    const url =
+      endpoint +
+      "?callback=" + encodeURIComponent(cbName) +
+      "&payload=" + encodeURIComponent(JSON.stringify(payloadObj)) +
+      "&v=" + Date.now();
+
+    const script = document.createElement("script");
+    script.src = url;
+    script.id = cbName;
+    script.onerror = () => {
+      cleanup();
+      onError(new Error("通信エラー：スクリプト読み込みに失敗しました。"));
+    };
+
+    document.head.appendChild(script);
+  }
+
+  // ===== 送信（fetchは使わない）=====
+  document.getElementById("btnSubmit").onclick = () => {
+    const labels = form.querySelectorAll("label");
+    const inputs = form.querySelectorAll("textarea");
+
+    const qa = [];
+    for (let i = 0; i < inputs.length; i++) {
+      const a = (inputs[i].value || "").trim();
+      const q = (labels[i].innerText || "").trim();
+      if (!a) {
+        setStatus(statusForm, "未入力があります。5問すべて入力してください。", true);
+        return;
+      }
+      qa.push({ q, a });
+    }
+
+    const btn = document.getElementById("btnSubmit");
+    btn.disabled = true;
+    setStatus(statusForm, "送信中... 少々お待ちください。");
+
+    const timeout = setTimeout(() => {
+      btn.disabled = false;
+      setStatus(statusForm, "タイムアウト：処理が長引いています。もう一度お試しください。", true);
+    }, 45000);
+
+    callGasJsonp(
+      GAS_ENDPOINT,
+      { qa },
+      (resp) => {
+        clearTimeout(timeout);
+        btn.disabled = false;
+        setStatus(statusForm, "");
+        toResultPage(resp.text);
+      },
+      (err) => {
+        clearTimeout(timeout);
+        btn.disabled = false;
+        setStatus(statusForm, "通信エラー：\n" + String(err && err.message ? err.message : err), true);
+      }
+    );
+  };
+
+  document.getElementById("btnCopy").onclick = async () => {
+    setStatus(statusResult, "");
+    const text = (document.getElementById("resultText").value || "").trim();
+    if(!text){
+      setStatus(statusResult, "コピーする文章がありません。", true);
+      return;
+    }
+    try{
+      if(navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(text);
+      }else{
+        const ta = document.getElementById("resultText");
+        ta.focus(); ta.select();
+        document.execCommand("copy");
+        window.getSelection().removeAllRanges();
+      }
+      setStatus(statusResult, "コピーしました。必要に応じて文章を修正してご利用ください。");
+    }catch(e){
+      setStatus(statusResult, "コピーに失敗しました。手動で選択してコピーしてください。", true);
+    }
+  };
+
+  document.getElementById("btnReview").onclick = () => {
+    window.open(REVIEW_URL, "_blank");
+  };
+</script>
+</body>
+</html>
